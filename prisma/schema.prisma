@@ -7,14 +7,71 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole { USER CONTRIBUTOR EDITOR REVIEWER ADMIN SUPERADMIN }
-enum ArticleStatus { DRAFT REVIEW PUBLISHED ARCHIVED REJECTED }
-enum IssueStatus { OPEN MONITORING INVESTIGATING VERIFIED RESOLVED CLOSED REJECTED }
-enum IssuePriority { LOW MEDIUM HIGH CRITICAL }
-enum VerificationStatus { UNVERIFIED IN_REVIEW VERIFIED DISPUTED }
-enum CommentStatus { PENDING APPROVED REJECTED HIDDEN }
-enum CorrectionStatus { PENDING ACCEPTED REJECTED COMPLETED }
-enum SourceType { WEBSITE DOCUMENT GOVERNMENT NEWS SOCIAL_MEDIA INTERVIEW VIDEO OTHER }
+enum UserRole {
+  USER
+  CONTRIBUTOR
+  EDITOR
+  REVIEWER
+  ADMIN
+  SUPERADMIN
+}
+
+enum ArticleStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+  REJECTED
+}
+
+enum IssueStatus {
+  OPEN
+  MONITORING
+  INVESTIGATING
+  VERIFIED
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  IN_REVIEW
+  VERIFIED
+  DISPUTED
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+enum CorrectionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+}
+
+enum SourceType {
+  WEBSITE
+  DOCUMENT
+  GOVERNMENT
+  NEWS
+  SOCIAL_MEDIA
+  INTERVIEW
+  VIDEO
+  OTHER
+}
 
 model User {
   id            String    @id @default(cuid())

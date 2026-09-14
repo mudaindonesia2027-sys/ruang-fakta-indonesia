@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole { USER CONTRIBUTOR EDITOR REVIEWER ADMIN SUPERADMIN }
+enum ArticleStatus { DRAFT REVIEW PUBLISHED ARCHIVED REJECTED }
+enum IssueStatus { OPEN MONITORING INVESTIGATING VERIFIED RESOLVED CLOSED REJECTED }
+enum IssuePriority { LOW MEDIUM HIGH CRITICAL }
+enum VerificationStatus { UNVERIFIED IN_REVIEW VERIFIED DISPUTED }
+enum CommentStatus { PENDING APPROVED REJECTED HIDDEN }
+enum CorrectionStatus { PENDING ACCEPTED REJECTED COMPLETED }
+enum SourceType { WEBSITE DOCUMENT GOVERNMENT NEWS SOCIAL_MEDIA INTERVIEW VIDEO OTHER }
+
+model User {
+  id            String    @id @default(cuid())
+  supabaseId    String?   @unique
+  email         String    @unique
+  name          String?
+  username      String?   @unique
+  image         String?
+  avatarUrl     String?
+  bio           String?
+  role          UserRole  @default(USER)
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  articles         Article[]    @relation("ArticleAuthor")
+  reviewedArticles Article[]    @relation("ArticleReviewer")
+  issues           Issue[]      @relation("IssueReporter")
+  comments         Comment[]
+  corrections      Correction[]
+  discussions      Discussion[]
+  auditLogs        AuditLog[]
+  media            Media[]
+}
+
+model Article {
+  id          String        @id @default(cuid())
+  title       String
+  slug        String        @unique
+  excerpt     String?
+  content     String        @db.Text
+  coverImage  String?
+  videoUrl    String?
+  status      ArticleStatus @default(DRAFT)
+  isFeatured  Boolean       @default(false)
+  isBreaking  Boolean       @default(false)
+  isPublished Boolean       @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  authorId   String
+  author     User @relation("ArticleAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reviewerId String?
+  reviewer   User? @relation("ArticleReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  sources     ArticleSource[]
+  comments    Comment[]
+  corrections Correction[]
+  discussions Discussion[]
+  media       Media[]
+
+  @@index([authorId])
+  @@index([reviewerId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([publishedAt])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  articles    Article[]
+  issues      Issue[]
+}
+
+model Source {
+  id          String     @id @default(cuid())
+  title       String
+  url         String?
+  description String?
+  publisher   String?
+  sourceType  SourceType @default(WEBSITE)
+  publishedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  articles    ArticleSource[]
+  issues      IssueSource[]
+}
+
+model ArticleSource {
+  id        String   @id @default(cuid())
+  articleId String
+  sourceId  String
+  note      String?
+  createdAt DateTime @default(now())
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  source    Source  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  @@unique([articleId, sourceId])
+  @@index([articleId])
+  @@index([sourceId])
+}
+
+model Issue {
+  id                 String             @id @default(cuid())
+  title              String
+  slug               String             @unique
+  summary            String?
+  description        String             @db.Text
+  location           String?
+  province           String?
+  regency            String?
+  district           String?
+  village            String?
+  hamlet             String?
+  address            String?
+  status             IssueStatus        @default(OPEN)
+  priority           IssuePriority      @default(MEDIUM)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  coverImage         String?
+  videoUrl           String?
+  reporterName       String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  reporterId String
+  reporter   User @relation("IssueReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  updates    IssueUpdate[]
+  media      Media[]
+  sources    IssueSource[]
+  comments   Comment[]
+
+  @@index([reporterId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([priority])
+  @@index([province])
+  @@index([regency])
+}
+
+model IssueSource {
+  id        String   @id @default(cuid())
+  issueId   String
+  sourceId  String
+  note      String?
+  createdAt DateTime @default(now())
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  @@unique([issueId, sourceId])
+  @@index([issueId])
+  @@index([sourceId])
+}
+
+model IssueUpdate {
+  id        String   @id @default(cuid())
+  title     String?
+  content   String   @db.Text
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([issueId])
+}
+
+model Comment {
+  id        String        @id @default(cuid())
+  content   String        @db.Text
+  status    CommentStatus @default(PENDING)
+  articleId String?
+  article   Article? @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  issueId   String?
+  issue     Issue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([articleId])
+  @@index([issueId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([status])
+}
+
+model Correction {
+  id              String           @id @default(cuid())
+  title           String
+  description     String           @db.Text
+  requestedChange String?          @db.Text
+  status          CorrectionStatus @default(PENDING)
+  articleId       String
+  article         Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([articleId])
+  @@index([userId])
+  @@index([status])
+}
+
+model Discussion {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([articleId])
+  @@index([userId])
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  mimeType  String?
+  size      Int?
+  altText   String?
+  userId    String?
+  user      User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  articleId String?
+  article   Article? @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  issueId   String?
+  issue     Issue? @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId])
+  @@index([articleId])
+  @@index([issueId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String?
+  entityId  String?
+  details   Json?
+  userId    String?
+  user      User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+}

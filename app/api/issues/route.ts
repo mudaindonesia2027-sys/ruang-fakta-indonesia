@@ -9,6 +9,21 @@ import { slugify, uniqueSlug } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
 
+const MANAGER_ROLES: ReadonlySet<UserRole> = new Set([
+  UserRole.EDITOR,
+  UserRole.REVIEWER,
+  UserRole.ADMIN,
+  UserRole.SUPERADMIN,
+]);
+
+const PUBLIC_ISSUE_STATUSES: ReadonlySet<IssueStatus> = new Set([
+  IssueStatus.OPEN,
+  IssueStatus.MONITORING,
+  IssueStatus.INVESTIGATING,
+  IssueStatus.VERIFIED,
+  IssueStatus.RESOLVED,
+]);
+
 function enumValue<T extends Record<string, string>>(values: T, value: unknown) {
   return typeof value === "string" && Object.values(values).includes(value) ? value as T[keyof T] : undefined;
 }
@@ -36,13 +51,13 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const viewer = await getCurrentUser();
-    const canManage = Boolean(viewer && [UserRole.EDITOR, UserRole.REVIEWER, UserRole.ADMIN, UserRole.SUPERADMIN].includes(viewer.role));
+    const canManage = Boolean(viewer && MANAGER_ROLES.has(viewer.role));
     const requestedStatus = enumValue(IssueStatus, searchParams.get("status"));
-    const status = canManage ? requestedStatus : requestedStatus && [IssueStatus.OPEN, IssueStatus.MONITORING, IssueStatus.INVESTIGATING, IssueStatus.VERIFIED, IssueStatus.RESOLVED].includes(requestedStatus as IssueStatus) ? requestedStatus : undefined;
+    const status = canManage ? requestedStatus : requestedStatus && PUBLIC_ISSUE_STATUSES.has(requestedStatus as IssueStatus) ? requestedStatus : undefined;
     const priority = enumValue(IssuePriority, searchParams.get("priority"));
     const search = searchParams.get("search")?.trim();
     const where: Prisma.IssueWhereInput = {
-      ...(status ? { status } : canManage ? {} : { status: { in: [IssueStatus.OPEN, IssueStatus.MONITORING, IssueStatus.INVESTIGATING, IssueStatus.VERIFIED, IssueStatus.RESOLVED] } }),
+      ...(status ? { status } : canManage ? {} : { status: { in: [...PUBLIC_ISSUE_STATUSES] } }),
       ...(priority ? { priority } : {}),
       ...(search ? { OR: [{ title: { contains: search, mode: "insensitive" } }, { summary: { contains: search, mode: "insensitive" } }, { description: { contains: search, mode: "insensitive" } }] } : {}),
     };
@@ -82,7 +97,7 @@ export async function POST(request: NextRequest) {
     if (!title || !description) return NextResponse.json({ success: false, error: "Judul dan isi isu wajib diisi." }, { status: 400 });
     const slug = await uniqueSlug(typeof body.slug === "string" && body.slug.trim() ? body.slug : title, async candidate => Boolean(await db.issue.findUnique({ where: { slug: candidate } })));
     const categoryId = await resolveCategory(body.categoryId ?? body.category);
-    const canManage = [UserRole.EDITOR, UserRole.REVIEWER, UserRole.ADMIN, UserRole.SUPERADMIN].includes(access.user.role);
+    const canManage = MANAGER_ROLES.has(access.user.role);
     const status = canManage ? enumValue(IssueStatus, body.status) ?? IssueStatus.OPEN : IssueStatus.OPEN;
     const priority = canManage ? enumValue(IssuePriority, body.priority) ?? IssuePriority.MEDIUM : IssuePriority.MEDIUM;
     const verificationStatus = canManage ? enumValue(VerificationStatus, body.verificationStatus) ?? VerificationStatus.UNVERIFIED : VerificationStatus.UNVERIFIED;

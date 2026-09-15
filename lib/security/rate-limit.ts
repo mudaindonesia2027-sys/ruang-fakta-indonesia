@@ -6,7 +6,8 @@ export type RateLimitAction =
   | "ROLE_CLAIM_CREATED"
   | "CLAIM_CREATED"
   | "ROLE_EVIDENCE_CREATED"
-  | "CLAIM_EVIDENCE_CREATED";
+  | "CLAIM_EVIDENCE_CREATED"
+  | "COMMENT_CREATED";
 
 type RateLimitRule = {
   limit: number;
@@ -20,6 +21,7 @@ const RULES: Record<RateLimitAction, RateLimitRule> = {
   CLAIM_CREATED: { limit: 10, windowMs: 60 * 60 * 1000 },
   ROLE_EVIDENCE_CREATED: { limit: 12, windowMs: 60 * 60 * 1000 },
   CLAIM_EVIDENCE_CREATED: { limit: 20, windowMs: 60 * 60 * 1000 },
+  COMMENT_CREATED: { limit: 20, windowMs: 60 * 60 * 1000 },
 };
 
 export async function checkRateLimit(
@@ -62,6 +64,28 @@ export async function checkRateLimit(
   }
 
   return { allowed: true as const };
+}
+
+export async function checkCooldown(
+  userId: string,
+  action: RateLimitAction,
+  cooldownMs: number,
+) {
+  const latest = await db.auditLog.findFirst({
+    where: { userId, action },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+
+  if (!latest) return { allowed: true as const };
+
+  const retryAt = latest.createdAt.getTime() + cooldownMs;
+  if (retryAt <= Date.now()) return { allowed: true as const };
+
+  return {
+    allowed: false as const,
+    retryAfterSeconds: Math.max(1, Math.ceil((retryAt - Date.now()) / 1000)),
+  };
 }
 
 export function rateLimitResponse(retryAfterSeconds: number) {

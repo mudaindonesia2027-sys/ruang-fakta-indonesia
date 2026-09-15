@@ -1,5 +1,5 @@
 import Link from "next/link";
-import GoogleSignIn from "@/components/auth/google-sign-in";
+import OAuthSignIn from "@/components/auth/oauth-sign-in";
 
 export default function LoginPage() {
   return (
@@ -8,24 +8,18 @@ export default function LoginPage() {
         <p className="eyebrow">RUANG FAKTA</p>
         <h1>Masuk untuk ikut membangun ruang diskusi yang lebih sehat.</h1>
         <p>
-          Gunakan akun Google untuk masuk. Setelah autentikasi berhasil,
-          akses akan disesuaikan dengan peran pengguna.
+          Gunakan akun yang sudah kamu pakai sehari-hari. Setelah masuk,
+          sistem keamanan RUANG FAKTA membantu menjaga ruang ini dari bot dan penyalahgunaan.
         </p>
 
-        <GoogleSignIn />
-
-        <div className="loginDivider"><span>atau</span></div>
-
-        <form className="loginForm">
-          <input type="email" placeholder="Email" disabled />
-          <input type="password" placeholder="Password" disabled />
-          <button type="button" className="secondaryButton" disabled>
-            Login email segera tersedia
-          </button>
-        </form>
+        <div className="loginProviders">
+          <OAuthSignIn provider="google" />
+          <OAuthSignIn provider="facebook" />
+        </div>
 
         <p className="loginFootnote">
-          Dengan masuk, pengguna menyetujui pedoman komunitas dan kebijakan privasi.
+          Akun terverifikasi berarti akun login berhasil terhubung dengan penyedia autentikasi.
+          Ini bukan verifikasi identitas hukum dan tidak menentukan apakah suatu klaim benar.
         </p>
 
         <Link href="/" className="backLink">← Kembali ke beranda</Link>

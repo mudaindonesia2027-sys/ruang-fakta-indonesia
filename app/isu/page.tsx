@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { IssueStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import PublicShell from "@/components/PublicShell";
 
@@ -6,9 +7,17 @@ export const dynamic = "force-dynamic";
 
 const allowedStatuses = ["OPEN", "MONITORING", "INVESTIGATING", "VERIFIED", "RESOLVED"] as const;
 
-function statusLabel(status: string) { const labels: Record<string, string> = { OPEN: "Terbuka", MONITORING: "Dipantau", INVESTIGATING: "Ditindaklanjuti", VERIFIED: "Terverifikasi", RESOLVED: "Selesai", CLOSED: "Arsip", REJECTED: "Ditolak" }; return labels[status] || status; }
-function verificationLabel(status: string) { const labels: Record<string, string> = { UNVERIFIED: "Belum diverifikasi", IN_REVIEW: "Sedang ditinjau", VERIFIED: "Terverifikasi", DISPUTED: "Diperdebatkan" }; return labels[status] || status; }
-function formatDate(date: Date) { return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" }).format(date); }
+function statusLabel(status: string) {
+  const labels: Record<string, string> = { OPEN: "Terbuka", MONITORING: "Dipantau", INVESTIGATING: "Ditindaklanjuti", VERIFIED: "Terverifikasi", RESOLVED: "Selesai", CLOSED: "Arsip", REJECTED: "Ditolak" };
+  return labels[status] || status;
+}
+function verificationLabel(status: string) {
+  const labels: Record<string, string> = { UNVERIFIED: "Belum diverifikasi", IN_REVIEW: "Sedang ditinjau", VERIFIED: "Terverifikasi", DISPUTED: "Diperdebatkan" };
+  return labels[status] || status;
+}
+function formatDate(date: Date) {
+  return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" }).format(date);
+}
 
 export default async function IsuPage({ searchParams }: { searchParams?: Promise<{ q?: string; wilayah?: string; status?: string }> }) {
   const params = (await searchParams) || {};
@@ -19,11 +28,21 @@ export default async function IsuPage({ searchParams }: { searchParams?: Promise
     ...(q ? [{ OR: [{ title: { contains: q, mode: "insensitive" as const } }, { description: { contains: q, mode: "insensitive" as const } }] }] : []),
     ...(wilayah ? [{ OR: [{ province: { contains: wilayah, mode: "insensitive" as const } }, { regency: { contains: wilayah, mode: "insensitive" as const } }, { district: { contains: wilayah, mode: "insensitive" as const } }] }] : []),
   ];
+  const where = {
+    status: selectedStatus ? (selectedStatus as IssueStatus) : { not: IssueStatus.REJECTED },
+    ...(filters.length ? { AND: filters } : {}),
+  };
 
   const issues = await db.issue.findMany({
-    where: { status: selectedStatus ? selectedStatus : { not: "REJECTED" }, ...(filters.length ? { AND: filters } : {}) },
-    orderBy: { updatedAt: "desc" }, take: 24,
-    select: { id: true, slug: true, title: true, summary: true, description: true, coverImage: true, status: true, verificationStatus: true, hamlet: true, village: true, district: true, regency: true, province: true, updatedAt: true, category: { select: { name: true } }, sources: { select: { source: { select: { title: true, publisher: true, publishedAt: true } } }, orderBy: { createdAt: "desc" }, take: 1 }, updates: { select: { title: true, content: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 }, _count: { select: { updates: true, comments: true } } },
+    where,
+    orderBy: { updatedAt: "desc" },
+    take: 24,
+    include: {
+      category: { select: { name: true } },
+      sources: { select: { source: { select: { title: true, publisher: true, publishedAt: true } } }, orderBy: { createdAt: "desc" }, take: 1 },
+      updates: { select: { title: true, content: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+      _count: { select: { updates: true, comments: true } },
+    },
   });
 
   return <PublicShell><main className="public-page">

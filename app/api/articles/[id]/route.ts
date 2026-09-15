@@ -56,7 +56,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (body.categoryId === null) data.categoryId = null;
     else if (typeof body.categoryId === "string" && body.categoryId.trim()) data.categoryId = body.categoryId.trim();
     if (body.coverImage === null || typeof body.coverImage === "string") data.coverImage = body.coverImage;
-    if (typeof body.status === "string" && Object.values(ArticleStatus).includes(body.status as ArticleStatus)) {
+    if (typeof body.status === "string") {
+      if (!Object.values(ArticleStatus).includes(body.status as ArticleStatus)) return NextResponse.json({ error: "Status artikel tidak valid." }, { status: 400 });
       const status = body.status as ArticleStatus;
       if (status === ArticleStatus.PUBLISHED && !["EDITOR", "ADMIN", "SUPERADMIN"].includes(access.user.role)) return NextResponse.json({ error: "Hanya editor atau admin yang dapat menerbitkan artikel." }, { status: 403 });
       data.status = status;
@@ -73,9 +74,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const access = await requirePermission("article:update");
+  const access = await requirePermission("article:delete");
   if (!access.ok) return access.response;
-  if (!["ADMIN", "SUPERADMIN"].includes(access.user.role)) return NextResponse.json({ error: "Hanya admin yang dapat menghapus artikel." }, { status: 403 });
   try {
     const { id } = await params;
     const existing = await db.article.findUnique({ where: { id }, select: { id: true } });

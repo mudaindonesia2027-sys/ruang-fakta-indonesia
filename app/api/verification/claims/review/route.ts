@@ -43,9 +43,12 @@ export async function POST(request: Request) {
       include: { evidence: { select: { id: true } } },
     });
     if (!claim) return NextResponse.json({ error: "Claim tidak ditemukan." }, { status: 404 });
-    if (![ClaimStatus.UNVERIFIED, ClaimStatus.DISPUTED].includes(claim.status)) {
+
+    const currentStatus = claim.status;
+    if (currentStatus !== ClaimStatus.UNVERIFIED && currentStatus !== ClaimStatus.DISPUTED) {
       return NextResponse.json({ error: "Claim sudah berada pada status final." }, { status: 400 });
     }
+
     if ((status === ClaimStatus.VERIFIED || status === ClaimStatus.SUPPORTED) && claim.evidence.length === 0) {
       return NextResponse.json({ error: "Claim tidak dapat dinyatakan supported/verified tanpa evidence." }, { status: 400 });
     }

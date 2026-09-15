@@ -6,7 +6,7 @@ export type IdentityVerificationInput = {
 };
 
 export type IdentityVerificationResult = {
-  provider: "VERIHUBS" | "PRIVY" | "VIDA";
+  provider: "MANUAL" | "VERIHUBS" | "PRIVY" | "VIDA";
   referenceId?: string;
   nikVerified: boolean;
   nameVerified: boolean;
@@ -18,4 +18,23 @@ export type IdentityVerificationResult = {
 
 export interface IdentityProvider {
   verifyIdentity(input: IdentityVerificationInput): Promise<IdentityVerificationResult>;
+}
+
+/**
+ * Initial provider for RUANG FAKTA. It creates a pending verification
+ * without sending sensitive identity data to a third party.
+ * A reviewer must complete the verification manually.
+ */
+export class ManualIdentityProvider implements IdentityProvider {
+  async verifyIdentity(input: IdentityVerificationInput): Promise<IdentityVerificationResult> {
+    return {
+      provider: "MANUAL",
+      referenceId: input.referenceId,
+      nikVerified: false,
+      nameVerified: false,
+      birthDateVerified: false,
+      documentVerified: false,
+      livenessVerified: false,
+    };
+  }
 }

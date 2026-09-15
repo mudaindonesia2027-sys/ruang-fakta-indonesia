@@ -7,23 +7,17 @@ interface PublicUser {
   name: string | null;
   username: string | null;
   avatarUrl: string | null;
-  publicLabel: string | null;
-  organization: string | null;
-  position: string | null;
   verifiedIdentity: boolean;
+  verifiedAccount: boolean;
   verifiedRole: boolean;
-  verificationLabel: string | null;
+  roleTitle: string | null;
+  organization: string | null;
 }
 
 interface CommentItem {
   id: string;
   content: string;
   status: string;
-  claimStatus: string;
-  evidenceUrl: string | null;
-  evidenceType: string | null;
-  location: string | null;
-  isOfficialResponse: boolean;
   createdAt: string;
   user: PublicUser | null;
   replies: CommentItem[];
@@ -31,23 +25,9 @@ interface CommentItem {
 
 function roleText(user: PublicUser | null) {
   if (!user) return "Pengguna";
-  if (user.verificationLabel) return user.verificationLabel;
-  if (user.position && user.organization) {
-    return `${user.position} · ${user.organization}`;
-  }
-  if (user.position) return user.position;
-  if (user.publicLabel) return user.publicLabel;
+  if (user.roleTitle && user.organization) return `${user.roleTitle} · ${user.organization}`;
+  if (user.roleTitle) return user.roleTitle;
   return "Warga";
-}
-
-function claimLabel(status: string) {
-  const labels: Record<string, string> = {
-    UNREVIEWED: "Belum ditinjau",
-    REVIEWED: "Sudah ditinjau",
-    VERIFIED: "Klaim terverifikasi",
-    DISPUTED: "Klaim diperdebatkan",
-  };
-  return labels[status] || status;
 }
 
 function formatDate(date: string) {
@@ -64,9 +44,6 @@ export default function DiscussionSection({ slug }: { slug: string }) {
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState("");
-  const [evidenceUrl, setEvidenceUrl] = useState("");
-  const [evidenceType, setEvidenceType] = useState("LINK");
-  const [location, setLocation] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -93,29 +70,19 @@ export default function DiscussionSection({ slug }: { slug: string }) {
 
   async function submitComment(event: FormEvent) {
     event.preventDefault();
-    if (!content.trim()) return;
+    if (content.trim().length < 10) return;
 
     setBusy(true);
     setMessage("");
-
     try {
       const response = await fetch(`/api/isu/${encodeURIComponent(slug)}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content,
-          evidenceUrl,
-          evidenceType,
-          location,
-        }),
+        body: JSON.stringify({ content }),
       });
-
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Gagal mengirim komentar.");
-
       setContent("");
-      setEvidenceUrl("");
-      setLocation("");
       setMessage(data.message || "Komentar diterima.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Gagal mengirim komentar.");
@@ -126,11 +93,10 @@ export default function DiscussionSection({ slug }: { slug: string }) {
 
   async function submitReply(event: FormEvent, commentId: string) {
     event.preventDefault();
-    if (!replyText.trim()) return;
+    if (replyText.trim().length < 5) return;
 
     setBusy(true);
     setMessage("");
-
     try {
       const response = await fetch(
         `/api/isu/${encodeURIComponent(slug)}/comments/${encodeURIComponent(commentId)}`,
@@ -138,12 +104,10 @@ export default function DiscussionSection({ slug }: { slug: string }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: replyText }),
-        }
+        },
       );
-
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Gagal mengirim balasan.");
-
       setReplyText("");
       setReplyTo(null);
       setMessage(data.message || "Balasan diterima.");
@@ -154,6 +118,17 @@ export default function DiscussionSection({ slug }: { slug: string }) {
     }
   }
 
+  function renderBadges(user: PublicUser | null) {
+    if (!user) return null;
+    return (
+      <>
+        {user.verifiedAccount && <span className="rf-badge">✓ Akun</span>}
+        {user.verifiedIdentity && <span className="rf-badge">✓ Identitas</span>}
+        {user.verifiedRole && <span className="rf-badge rf-badge-role">✓ Peran</span>}
+      </>
+    );
+  }
+
   return (
     <section className="rf-discussion" aria-labelledby="diskusi-title">
       <div className="rf-discussion-heading">
@@ -161,8 +136,8 @@ export default function DiscussionSection({ slug }: { slug: string }) {
           <span className="rf-eyebrow">RUANG PUBLIK</span>
           <h2 id="diskusi-title">Suara publik & diskusi</h2>
           <p>
-            Bagikan pengalaman, informasi, koreksi, atau perspektif. Identitas dan jabatan dapat
-            diverifikasi, tetapi verifikasi identitas tidak otomatis berarti isi pendapat benar.
+            Bagikan pengalaman, informasi, koreksi, atau perspektif. Lencana akun, identitas,
+            dan peran adalah hal yang berbeda; tidak ada lencana yang otomatis membuat isi pendapat benar.
           </p>
         </div>
       </div>
@@ -173,50 +148,22 @@ export default function DiscussionSection({ slug }: { slug: string }) {
           onChange={(event) => setContent(event.target.value)}
           placeholder="Apa yang Anda ketahui, lihat, atau alami terkait isu ini?"
           rows={5}
-          maxLength={5000}
+          maxLength={3000}
           required
         />
-
-        <div className="rf-form-grid">
-          <input
-            value={location}
-            onChange={(event) => setLocation(event.target.value)}
-            placeholder="Lokasi (opsional)"
-            maxLength={160}
-          />
-
-          <select value={evidenceType} onChange={(event) => setEvidenceType(event.target.value)}>
-            <option value="LINK">Tautan bukti</option>
-            <option value="DOCUMENT">Dokumen</option>
-            <option value="PHOTO">Foto</option>
-            <option value="VIDEO">Video</option>
-            <option value="OTHER">Lainnya</option>
-          </select>
-        </div>
-
-        <input
-          value={evidenceUrl}
-          onChange={(event) => setEvidenceUrl(event.target.value)}
-          placeholder="URL bukti / sumber (opsional)"
-          inputMode="url"
-          maxLength={1000}
-        />
-
         <div className="rf-discussion-actions">
-          <span>Semua kiriman baru masuk moderasi sebelum tampil.</span>
+          <span>Kiriman baru masuk moderasi sebelum tampil publik.</span>
           <button type="submit" disabled={busy || content.trim().length < 10}>
             {busy ? "Mengirim…" : "Kirim informasi"}
           </button>
         </div>
       </form>
 
-      {message && <p className="rf-form-message">{message}</p>}
+      {message && <p className="rf-form-message" role="status">{message}</p>}
 
       <div className="rf-comments">
         {loading ? (
-          <div className="rf-comments-skeleton">
-            Memuat diskusi…
-          </div>
+          <div className="rf-comments-skeleton">Memuat diskusi…</div>
         ) : comments.length === 0 ? (
           <div className="rf-empty-discussion">
             <strong>Belum ada diskusi publik.</strong>
@@ -235,9 +182,7 @@ export default function DiscussionSection({ slug }: { slug: string }) {
                   <div>
                     <div className="rf-comment-name-row">
                       <strong>{comment.user?.name || "Pengguna"}</strong>
-                      {comment.user?.verifiedIdentity && <span className="rf-badge">✓ Identitas</span>}
-                      {comment.user?.verifiedRole && <span className="rf-badge rf-badge-role">✓ Peran</span>}
-                      {comment.isOfficialResponse && <span className="rf-badge rf-badge-official">Tanggapan resmi</span>}
+                      {renderBadges(comment.user)}
                     </div>
                     <div className="rf-comment-role">{roleText(comment.user)}</div>
                   </div>
@@ -246,16 +191,6 @@ export default function DiscussionSection({ slug }: { slug: string }) {
               </header>
 
               <p className="rf-comment-content">{comment.content}</p>
-
-              <div className="rf-comment-meta">
-                <span>{claimLabel(comment.claimStatus)}</span>
-                {comment.location && <span>📍 {comment.location}</span>}
-                {comment.evidenceUrl && (
-                  <a href={comment.evidenceUrl} target="_blank" rel="noreferrer">
-                    Lihat bukti →
-                  </a>
-                )}
-              </div>
 
               <div className="rf-comment-actions">
                 <button type="button" onClick={() => setReplyTo(replyTo === comment.id ? null : comment.id)}>
@@ -285,8 +220,7 @@ export default function DiscussionSection({ slug }: { slug: string }) {
                     <article key={reply.id} className="rf-reply">
                       <div className="rf-comment-name-row">
                         <strong>{reply.user?.name || "Pengguna"}</strong>
-                        {reply.user?.verifiedIdentity && <span className="rf-badge">✓ Identitas</span>}
-                        {reply.user?.verifiedRole && <span className="rf-badge rf-badge-role">✓ Peran</span>}
+                        {renderBadges(reply.user)}
                       </div>
                       <div className="rf-comment-role">{roleText(reply.user)}</div>
                       <p>{reply.content}</p>

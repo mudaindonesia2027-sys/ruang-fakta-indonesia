@@ -55,10 +55,10 @@ export default async function VerificationDashboardPage() {
           </div>
           <article className="dashboard-item">
             <div>
-              <h3>{identity ? identityLabels[identity.status] || identity.status : "Belum mengajukan verifikasi"}</h3>
-              <p>Verifikasi identitas tidak otomatis membuat semua pernyataan Anda menjadi benar. Data sensitif tidak ditampilkan di halaman ini.</p>
+              <h3>{identity ? identityLabels[identity.status] || identity.status : "Belum diverifikasi"}</h3>
+              <p>Pengajuan identitas belum dibuka melalui form aplikasi. Data KTP dan biometrik tidak dikumpulkan atau ditampilkan di halaman ini.</p>
+              <p>Jika nanti diaktifkan, proses identitas akan menggunakan jalur verifikasi khusus yang aman.</p>
             </div>
-            {!identity && <Link href="/dashboard/verifikasi/identitas" className="button-secondary">Mulai</Link>}
           </article>
         </div>
 

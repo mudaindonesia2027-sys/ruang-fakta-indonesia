@@ -24,13 +24,35 @@ export async function POST(request: NextRequest) {
     const statement = typeof body.statement === "string" ? body.statement.trim() : "";
     if (!statement) return NextResponse.json({ success: false, error: "Pernyataan wajib diisi." }, { status: 400 });
 
+    const articleId = typeof body.articleId === "string" ? body.articleId : null;
+    const issueId = typeof body.issueId === "string" ? body.issueId : null;
+    const duplicateSince = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const duplicate = await db.claim.findFirst({
+      where: {
+        authorId: user.id,
+        statement,
+        articleId,
+        issueId,
+        createdAt: { gte: duplicateSince },
+      },
+      select: { id: true },
+    });
+
+    if (duplicate) {
+      return NextResponse.json(
+        { success: false, error: "Klaim yang sama sudah dibuat dalam 24 jam terakhir." },
+        { status: 409 },
+      );
+    }
+
     const claim = await db.claim.create({
       data: {
         authorId: user.id,
         statement,
         status: ClaimStatus.UNVERIFIED,
-        articleId: typeof body.articleId === "string" ? body.articleId : null,
-        issueId: typeof body.issueId === "string" ? body.issueId : null,
+        articleId,
+        issueId,
       },
     });
 

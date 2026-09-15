@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import "./admin.css";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const access = await requireRole("EDITOR", "REVIEWER", "ADMIN", "SUPERADMIN");
@@ -12,22 +13,31 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/ruang-saya");
   }
 
+  const role = access.user?.role ?? "EDITOR";
+
   return (
     <div className="adminShell">
       <aside className="adminSidebar">
-        <a className="brand" href="/admin">RUANG <span>FAKTA</span></a>
-        <div className="adminLabel">OWNER / ADMIN · EDITORIAL CMS</div>
-        <p className="adminNotice">Area internal. Perubahan di sini memengaruhi konten publik setelah proses review.</p>
-        <nav aria-label="Navigasi admin">
+        <a className="brand" href="/admin" aria-label="Ruang Fakta CMS">RUANG <span>FAKTA</span></a>
+        <div className="adminLabel">{role} · EDITORIAL CMS</div>
+        <p className="adminNotice">Area internal. Perubahan di sini memengaruhi konten publik setelah proses review dan verifikasi.</p>
+        <nav aria-label="Navigasi ruang editorial">
+          <span className="adminNavHeading">Workspace</span>
           <a href="/admin">Overview</a>
+          <a href="/admin/review">Review & antrean</a>
+
+          <span className="adminNavHeading">Konten</span>
           <a href="/admin/articles">Artikel</a>
-          <a href="/admin/issues">Isu</a>
-          <a href="/admin/review">Review</a>
-          <a href="/admin/verification">Verifikasi</a>
-          <a href="/admin/audit">Audit Trail</a>
-          <a href="/admin/discussions">Diskusi</a>
+          <a href="/admin/issues">Isu publik</a>
           <a href="/admin/sources">Sumber</a>
+
+          <span className="adminNavHeading">Kepercayaan</span>
+          <a href="/admin/verification">Verifikasi</a>
           <a href="/admin/corrections">Koreksi</a>
+          <a href="/admin/discussions">Moderasi diskusi</a>
+          <a href="/admin/audit">Audit trail</a>
+
+          <span className="adminNavHeading">Konfigurasi</span>
           <a href="/admin/settings">Pengaturan</a>
         </nav>
         <div className="adminSidebarFooter">

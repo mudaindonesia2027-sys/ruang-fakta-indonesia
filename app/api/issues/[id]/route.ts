@@ -60,9 +60,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const access = await requirePermission("issue:update");
+  const access = await requirePermission("issue:delete");
   if (!access.ok) return access.response;
-  if (!["ADMIN", "SUPERADMIN"].includes(access.user.role)) return NextResponse.json({ error: "Hanya admin yang dapat menghapus isu." }, { status: 403 });
   try {
     const { id } = await params;
     const existing = await db.issue.findUnique({ where: { id }, select: { id: true } });

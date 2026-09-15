@@ -87,6 +87,20 @@ enum IdentityVerificationProvider {
   VIDA
 }
 
+enum AccountVerificationProvider {
+  GOOGLE
+  FACEBOOK
+  APPLE
+  GITHUB
+  LINKEDIN
+}
+
+enum AccountVerificationStatus {
+  VERIFIED
+  REVOKED
+  FAILED
+}
+
 enum RoleClaimStatus {
   PENDING
   VERIFIED
@@ -136,6 +150,7 @@ model User {
   auditLogs             AuditLog[]
   media                 Media[]
   identityVerifications IdentityVerification[]
+  accountVerifications AccountVerification[]
   roleClaims            RoleClaim[]
   claims                Claim[]
 }
@@ -387,6 +402,23 @@ model IdentityVerification {
 
   @@index([userId, status])
   @@index([provider, providerReference])
+}
+
+model AccountVerification {
+  id                String                     @id @default(cuid())
+  userId            String
+  provider          AccountVerificationProvider
+  providerAccountId String
+  status            AccountVerificationStatus  @default(VERIFIED)
+  verifiedAt        DateTime?
+  revokedAt         DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId, provider, status])
 }
 
 model RoleClaim {

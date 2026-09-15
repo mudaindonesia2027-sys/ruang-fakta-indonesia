@@ -4,16 +4,25 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const regions = ["Nasional", "Provinsi", "Kabupaten / Kota", "Kecamatan", "Desa", "Dusun"];
+const publicIssueStatuses = ["OPEN", "MONITORING", "INVESTIGATING", "VERIFIED", "RESOLVED"] as const;
+const activeIssueStatuses = ["OPEN", "MONITORING", "INVESTIGATING", "VERIFIED"] as const;
+const regions = [
+  { label: "Nasional", level: "nasional" },
+  { label: "Provinsi", level: "provinsi" },
+  { label: "Kabupaten / Kota", level: "kabupaten" },
+  { label: "Kecamatan", level: "kecamatan" },
+  { label: "Desa", level: "desa" },
+  { label: "Dusun", level: "dusun" },
+];
 const topics = ["Pemerintahan", "Ekonomi", "Pendidikan", "Kesehatan", "Lingkungan", "Infrastruktur"];
 const dateLabel = (value: Date | null) => value ? new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" }).format(value) : "";
 
 export default async function HomePage() {
   const [issues, articles, articleCount, issueCount, sourceCount] = await Promise.all([
-    db.issue.findMany({ where: { status: { not: "REJECTED" } }, orderBy: { updatedAt: "desc" }, take: 6, select: { id: true, slug: true, title: true, summary: true, status: true, province: true, regency: true, updatedAt: true, category: { select: { name: true } } } }),
+    db.issue.findMany({ where: { status: { in: [...publicIssueStatuses] } }, orderBy: { updatedAt: "desc" }, take: 6, select: { id: true, slug: true, title: true, summary: true, status: true, province: true, regency: true, updatedAt: true, category: { select: { name: true } } } }),
     db.article.findMany({ where: { status: "PUBLISHED", isPublished: true }, orderBy: { publishedAt: "desc" }, take: 6, select: { id: true, slug: true, title: true, excerpt: true, publishedAt: true, category: { select: { name: true } } } }),
     db.article.count({ where: { status: "PUBLISHED", isPublished: true } }),
-    db.issue.count({ where: { status: { notIn: ["REJECTED", "CLOSED"] } } }),
+    db.issue.count({ where: { status: { in: [...activeIssueStatuses] } } }),
     db.source.count(),
   ]);
 
@@ -30,7 +39,7 @@ export default async function HomePage() {
 
     <section className="section section-featured"><div className="content-container"><div className="section-heading"><div><span className="section-kicker">ISU TERBARU</span><h2>Persoalan publik yang sedang dipantau</h2><p>Daftar ini mengikuti data aktual. Wilayah tanpa data tidak akan dibuat seolah-olah sudah memiliki liputan.</p></div><Link href="/isu" className="text-link">Lihat semua isu →</Link></div>{issues.length ? <div className="featured-grid">{issues.map(issue => <article className="featured-card" key={issue.id}><div className="featured-card-content"><div className="issue-meta"><span>{issue.category?.name || "Isu Publik"}</span><span className="status">{issue.status}</span></div><h3><Link href={`/isu/${issue.slug}`}>{issue.title}</Link></h3><p>{issue.summary || "Belum ada ringkasan."}</p><div className="issue-location">{[issue.regency, issue.province].filter(Boolean).join(", ") || "Indonesia"}</div><div className="issue-footer"><span>Diperbarui {dateLabel(issue.updatedAt)}</span><Link href={`/isu/${issue.slug}`}>Buka isu →</Link></div></div></article>)}</div> : <div className="empty-state"><h2>Belum ada isu publik yang dapat ditampilkan</h2><p>Isu akan muncul setelah data masuk dan melewati pemeriksaan.</p></div>}</div></section>
 
-    <section className="section regional-section"><div className="content-container"><div className="regional-layout"><div className="regional-intro"><span className="section-kicker">CAKUPAN WILAYAH</span><h2>Dari nasional sampai tingkat lokal.</h2><p>Gunakan wilayah sebagai konteks untuk menemukan informasi yang benar-benar tersedia.</p><Link href="/isu" className="button-dark">Jelajahi semua wilayah →</Link></div><div className="regional-grid">{regions.map((region,index) => <Link href={region === "Nasional" ? "/isu" : `/isu?wilayah=${encodeURIComponent(region)}`} className="regional-card" key={region}><span className="region-number">0{index+1}</span><h3>{region}</h3><p>Isu dan informasi yang tersedia di tingkat ini.</p><span className="regional-arrow">→</span></Link>)}</div></div></div></section>
+    <section className="section regional-section"><div className="content-container"><div className="regional-layout"><div className="regional-intro"><span className="section-kicker">CAKUPAN WILAYAH</span><h2>Dari nasional sampai tingkat lokal.</h2><p>Pilih tingkat wilayah untuk menyaring isu yang memang memiliki data pada tingkat tersebut.</p><Link href="/isu" className="button-dark">Jelajahi semua wilayah →</Link></div><div className="regional-grid">{regions.map((region,index) => <Link href={`/isu?tingkat=${region.level}`} className="regional-card" key={region.level}><span className="region-number">0{index+1}</span><h3>{region.label}</h3><p>Isu dan informasi yang tersedia di tingkat ini.</p><span className="regional-arrow">→</span></Link>)}</div></div></div></section>
 
     <section className="section topics-section"><div className="content-container"><div className="section-heading centered-heading"><div><span className="section-kicker">TOPIK PUBLIK</span><h2>Cari berdasarkan persoalan</h2><p>Topik adalah pintu masuk untuk membaca isu lintas wilayah.</p></div></div><div className="topics-grid">{topics.map(topic => <Link href={`/isu?q=${encodeURIComponent(topic)}`} className="topic-card" key={topic}><div className="topic-icon">●</div><h3>{topic}</h3><p>Telusuri isu terkait {topic.toLowerCase()}.</p><span className="topic-arrow">→</span></Link>)}</div></div></section>
 

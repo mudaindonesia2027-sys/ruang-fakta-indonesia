@@ -6,6 +6,7 @@ on:
   pull_request:
     branches: [main]
 
+# Public/user/admin UI changes are validated by the same production build gate.
 jobs:
   quality:
     runs-on: ubuntu-latest

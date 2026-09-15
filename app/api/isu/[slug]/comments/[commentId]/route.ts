@@ -104,7 +104,6 @@ export async function POST(
       userId: user.id,
       parentId: parent.id,
       status: "PENDING",
-      claimStatus: "UNREVIEWED",
     },
     select: {
       id: true,

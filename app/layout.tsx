@@ -4,6 +4,7 @@ import "./ui-overrides.css";
 import "./workspace.css";
 import "./nusantara-premium.css";
 import "./nusantara-reframe.css";
+import "./nusantara-signal.css";
 
 export const metadata: Metadata = {
   title: { default: "Ruang Fakta", template: "%s | Ruang Fakta" },

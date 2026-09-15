@@ -3,6 +3,7 @@ import { ArticleStatus, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { requirePermission } from "@/lib/authorization";
 import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 import { slugify, uniqueSlug } from "@/lib/slug";
 
@@ -64,9 +65,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
-    if (!["CONTRIBUTOR", "EDITOR", "ADMIN", "SUPERADMIN"].includes(user.role)) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    const access = await requirePermission("article:create");
+    if (!access.ok) return access.response;
+    const user = access.user;
 
     const limit = await checkRateLimit(user.id, "ARTICLE_CREATED");
     if (!limit.allowed) return NextResponse.json(rateLimitResponse(limit.retryAfterSeconds), { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
@@ -79,7 +80,8 @@ export async function POST(request: NextRequest) {
 
     const requestedStatus = typeof body.status === "string" ? body.status : "DRAFT";
     const parsedStatus = parseStatus(requestedStatus);
-    const status = parsedStatus ?? ArticleStatus.DRAFT;
+    if (!parsedStatus) return NextResponse.json({ success: false, error: "Status artikel tidak valid." }, { status: 400 });
+    const status = parsedStatus;
     if (status === ArticleStatus.PUBLISHED && !["EDITOR", "ADMIN", "SUPERADMIN"].includes(user.role)) {
       return NextResponse.json({ success: false, error: "Artikel kontributor harus melalui proses editorial sebelum diterbitkan." }, { status: 403 });
     }

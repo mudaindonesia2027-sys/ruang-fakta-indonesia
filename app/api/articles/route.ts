@@ -10,6 +10,7 @@ import {
 
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 import { slugify, uniqueSlug } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
@@ -94,15 +95,6 @@ export async function GET(
       where.status = status;
     }
 
-    /**
-     * category adalah relasi Prisma.
-     *
-     * Tidak boleh:
-     *
-     * category: categoryParam
-     *
-     * Gunakan relation filter.
-     */
     if (
       categoryParam &&
       categoryParam.trim()
@@ -159,7 +151,6 @@ export async function GET(
     ] = await Promise.all([
       db.article.findMany({
         where,
-
         include: {
           author: {
             select: {
@@ -168,7 +159,6 @@ export async function GET(
               email: true,
             },
           },
-
           category: {
             select: {
               id: true,
@@ -177,15 +167,12 @@ export async function GET(
             },
           },
         },
-
         orderBy: {
           updatedAt: "desc",
         },
-
         skip,
         take: limit,
       }),
-
       db.article.count({
         where,
       }),
@@ -193,14 +180,11 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-
       data: articles,
-
       pagination: {
         page,
         limit,
         total,
-
         totalPages:
           Math.ceil(total / limit),
       },
@@ -214,7 +198,6 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
-
         error:
           "Gagal mengambil data artikel.",
       },
@@ -236,7 +219,6 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-
           error:
             "Authentication required",
         },
@@ -260,12 +242,32 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-
           error:
             "Forbidden",
         },
         {
           status: 403,
+        }
+      );
+    }
+
+    const limit = await checkRateLimit(
+      user.id,
+      "ARTICLE_CREATED"
+    );
+
+    if (!limit.allowed) {
+      return NextResponse.json(
+        rateLimitResponse(
+          limit.retryAfterSeconds
+        ),
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(
+              limit.retryAfterSeconds
+            ),
+          },
         }
       );
     }
@@ -287,7 +289,6 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-
           error:
             "title is required",
         },
@@ -301,7 +302,6 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-
           error:
             "content is required",
         },
@@ -333,7 +333,6 @@ export async function POST(
           body.slug.trim()
           ? body.slug
           : title,
-
         async (candidate) => {
           const existing =
             await db.article.findUnique({
@@ -362,40 +361,30 @@ export async function POST(
       await db.article.create({
         data: {
           title,
-
           slug,
-
           excerpt:
             typeof body.excerpt ===
             "string"
               ? body.excerpt.trim() ||
                 null
               : null,
-
           content,
-
           status,
-
           authorId:
             user.id,
-
           categoryId,
-
           coverImage:
             typeof body.coverImage === "string" && body.coverImage.trim()
               ? body.coverImage.trim()
               : null,
-
           isPublished:
             status === ArticleStatus.PUBLISHED,
-
           publishedAt:
             status ===
             ArticleStatus.PUBLISHED
               ? new Date()
               : null,
         },
-
         include: {
           author: {
             select: {
@@ -404,7 +393,6 @@ export async function POST(
               email: true,
             },
           },
-
           category: {
             select: {
               id: true,
@@ -418,7 +406,6 @@ export async function POST(
     return NextResponse.json(
       {
         success: true,
-
         data: article,
       },
       {
@@ -434,7 +421,6 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-
         error:
           "Gagal membuat artikel.",
       },

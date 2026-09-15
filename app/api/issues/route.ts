@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { IssuePriority, IssueStatus, Prisma, VerificationStatus } from "@prisma/client";
+import { IssuePriority, IssueStatus, Prisma, UserRole, VerificationStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth";
 import { requirePermission } from "@/lib/authorization";
 import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 import { slugify, uniqueSlug } from "@/lib/slug";
@@ -10,6 +11,16 @@ export const dynamic = "force-dynamic";
 
 function enumValue<T extends Record<string, string>>(values: T, value: unknown) {
   return typeof value === "string" && Object.values(values).includes(value) ? value as T[keyof T] : undefined;
+}
+
+function safeHttpUrl(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 async function resolveCategory(input: unknown) {
@@ -24,17 +35,25 @@ async function resolveCategory(input: unknown) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const status = enumValue(IssueStatus, searchParams.get("status"));
+    const viewer = await getCurrentUser();
+    const canManage = Boolean(viewer && [UserRole.EDITOR, UserRole.REVIEWER, UserRole.ADMIN, UserRole.SUPERADMIN].includes(viewer.role));
+    const requestedStatus = enumValue(IssueStatus, searchParams.get("status"));
+    const status = canManage ? requestedStatus : requestedStatus && [IssueStatus.OPEN, IssueStatus.MONITORING, IssueStatus.INVESTIGATING, IssueStatus.VERIFIED, IssueStatus.RESOLVED].includes(requestedStatus as IssueStatus) ? requestedStatus : undefined;
     const priority = enumValue(IssuePriority, searchParams.get("priority"));
     const search = searchParams.get("search")?.trim();
     const where: Prisma.IssueWhereInput = {
-      ...(status ? { status } : {}),
+      ...(status ? { status } : canManage ? {} : { status: { in: [IssueStatus.OPEN, IssueStatus.MONITORING, IssueStatus.INVESTIGATING, IssueStatus.VERIFIED, IssueStatus.RESOLVED] } }),
       ...(priority ? { priority } : {}),
       ...(search ? { OR: [{ title: { contains: search, mode: "insensitive" } }, { summary: { contains: search, mode: "insensitive" } }, { description: { contains: search, mode: "insensitive" } }] } : {}),
     };
     const issues = await db.issue.findMany({
       where,
-      include: { category: true, _count: { select: { updates: true, sources: true, comments: true } } },
+      select: {
+        id: true, title: true, slug: true, summary: true, description: true, status: true, priority: true, verificationStatus: true,
+        province: true, regency: true, district: true, village: true, hamlet: true, coverImage: true, updatedAt: true,
+        category: { select: { name: true } },
+        _count: { select: { updates: true, sources: true, comments: true } },
+      },
       orderBy: { updatedAt: "desc" },
       take: Math.min(Math.max(Number(searchParams.get("limit")) || 100, 1), 100),
     });
@@ -63,9 +82,16 @@ export async function POST(request: NextRequest) {
     if (!title || !description) return NextResponse.json({ success: false, error: "Judul dan isi isu wajib diisi." }, { status: 400 });
     const slug = await uniqueSlug(typeof body.slug === "string" && body.slug.trim() ? body.slug : title, async candidate => Boolean(await db.issue.findUnique({ where: { slug: candidate } })));
     const categoryId = await resolveCategory(body.categoryId ?? body.category);
-    const status = enumValue(IssueStatus, body.status) ?? IssueStatus.OPEN;
-    const priority = enumValue(IssuePriority, body.priority) ?? IssuePriority.MEDIUM;
-    const verificationStatus = enumValue(VerificationStatus, body.verificationStatus) ?? VerificationStatus.UNVERIFIED;
+    const canManage = [UserRole.EDITOR, UserRole.REVIEWER, UserRole.ADMIN, UserRole.SUPERADMIN].includes(access.user.role);
+    const status = canManage ? enumValue(IssueStatus, body.status) ?? IssueStatus.OPEN : IssueStatus.OPEN;
+    const priority = canManage ? enumValue(IssuePriority, body.priority) ?? IssuePriority.MEDIUM : IssuePriority.MEDIUM;
+    const verificationStatus = canManage ? enumValue(VerificationStatus, body.verificationStatus) ?? VerificationStatus.UNVERIFIED : VerificationStatus.UNVERIFIED;
+    const coverImage = safeHttpUrl(body.coverImage);
+    const videoUrl = safeHttpUrl(body.videoUrl);
+    const sourceUrl = safeHttpUrl(body.sourceUrl);
+    if (body.coverImage && !coverImage) return NextResponse.json({ success: false, error: "URL gambar tidak valid." }, { status: 400 });
+    if (body.videoUrl && !videoUrl) return NextResponse.json({ success: false, error: "URL video tidak valid." }, { status: 400 });
+    if (body.sourceUrl && !sourceUrl) return NextResponse.json({ success: false, error: "URL sumber harus menggunakan http atau https." }, { status: 400 });
     const issue = await db.issue.create({
       data: {
         title, slug, description, status, priority, verificationStatus,
@@ -78,15 +104,15 @@ export async function POST(request: NextRequest) {
         hamlet: typeof body.hamlet === "string" ? body.hamlet.trim() || null : null,
         address: typeof body.address === "string" ? body.address.trim() || null : null,
         location: typeof body.location === "string" ? body.location.trim() || null : null,
-        coverImage: typeof body.coverImage === "string" ? body.coverImage.trim() || null : null,
-        videoUrl: typeof body.videoUrl === "string" ? body.videoUrl.trim() || null : null,
+        coverImage,
+        videoUrl,
         reporterName: typeof body.reporterName === "string" ? body.reporterName.trim() || null : null,
         reporterId: access.user.id,
       },
       include: { category: true },
     });
-    if (typeof body.sourceUrl === "string" && body.sourceUrl.trim()) {
-      const source = await db.source.create({ data: { title: typeof body.sourceName === "string" && body.sourceName.trim() ? body.sourceName.trim() : body.sourceUrl, url: body.sourceUrl.trim() } });
+    if (sourceUrl) {
+      const source = await db.source.create({ data: { title: typeof body.sourceName === "string" && body.sourceName.trim() ? body.sourceName.trim() : sourceUrl, url: sourceUrl } });
       await db.issueSource.create({ data: { issueId: issue.id, sourceId: source.id } });
     }
     await audit({ action: "ISSUE_CREATED", entity: "Issue", entityId: issue.id, actorId: access.user.id });

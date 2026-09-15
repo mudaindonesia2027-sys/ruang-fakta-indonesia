@@ -1,9 +1,17 @@
+import { EvidenceType } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
-const allowedTypes = new Set(["DOCUMENT", "OFFICIAL_SOURCE", "PHOTO", "VIDEO", "LINK", "OTHER"]);
+const allowedTypes = new Set<EvidenceType>([
+  EvidenceType.DOCUMENT,
+  EvidenceType.OFFICIAL_SOURCE,
+  EvidenceType.PHOTO,
+  EvidenceType.VIDEO,
+  EvidenceType.LINK,
+  EvidenceType.OTHER,
+]);
 
 export async function POST(
   request: Request,
@@ -22,7 +30,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const type = typeof body.type === "string" ? body.type.trim().toUpperCase() : "";
+    const type = typeof body.type === "string" ? body.type.trim().toUpperCase() as EvidenceType : null;
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const sourceUrl = typeof body.sourceUrl === "string" ? body.sourceUrl.trim() : null;
     const description = typeof body.description === "string" ? body.description.trim() : null;
@@ -31,7 +39,7 @@ export async function POST(
       ? new Date(body.observedAt)
       : null;
 
-    if (!allowedTypes.has(type)) return NextResponse.json({ error: "Tipe evidence tidak valid." }, { status: 400 });
+    if (!type || !allowedTypes.has(type)) return NextResponse.json({ error: "Tipe evidence tidak valid." }, { status: 400 });
     if (!title) return NextResponse.json({ error: "Judul evidence wajib diisi." }, { status: 400 });
     if (sourceUrl) {
       try {
@@ -46,15 +54,7 @@ export async function POST(
     }
 
     const evidence = await db.claimEvidence.create({
-      data: {
-        claimId: id,
-        type: type as never,
-        title,
-        sourceUrl,
-        description,
-        location,
-        observedAt,
-      },
+      data: { claimId: id, type, title, sourceUrl, description, location, observedAt },
     });
 
     await audit({

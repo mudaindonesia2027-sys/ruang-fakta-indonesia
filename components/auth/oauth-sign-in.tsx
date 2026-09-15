@@ -9,17 +9,14 @@ const labels: Record<Provider, string> = {
   facebook: "Lanjut dengan Facebook",
 };
 
-export default function OAuthSignIn({
-  provider,
-  next = "/",
-}: {
-  provider: Provider;
-  next?: string;
-}) {
+export default function OAuthSignIn({ provider }: { provider: Provider }) {
   async function signIn() {
     const supabase = createClient();
     const origin = window.location.origin;
-    const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    const requestedNext = new URLSearchParams(window.location.search).get("next") || "/";
+    const safeNext = requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+      ? requestedNext
+      : "/";
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,

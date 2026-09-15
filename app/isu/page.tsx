@@ -29,7 +29,7 @@ export default async function IsuPage({ searchParams }: { searchParams?: Promise
     ...(wilayah ? [{ OR: [{ province: { contains: wilayah, mode: "insensitive" as const } }, { regency: { contains: wilayah, mode: "insensitive" as const } }, { district: { contains: wilayah, mode: "insensitive" as const } }] }] : []),
   ];
   const where = {
-    status: selectedStatus ? (selectedStatus as IssueStatus) : { not: IssueStatus.REJECTED },
+    status: selectedStatus ? (selectedStatus as IssueStatus) : { in: allowedStatuses as unknown as IssueStatus[] },
     ...(filters.length ? { AND: filters } : {}),
   };
 

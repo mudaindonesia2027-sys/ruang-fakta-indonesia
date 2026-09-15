@@ -73,6 +73,44 @@ enum SourceType {
   OTHER
 }
 
+enum IdentityVerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  EXPIRED
+}
+
+enum IdentityVerificationProvider {
+  VERIHUBS
+  PRIVY
+  VIDA
+}
+
+enum RoleClaimStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum ClaimStatus {
+  UNVERIFIED
+  SUPPORTED
+  DISPUTED
+  VERIFIED
+  NOT_PROVEN
+  FALSE
+}
+
+enum EvidenceType {
+  DOCUMENT
+  OFFICIAL_SOURCE
+  PHOTO
+  VIDEO
+  LINK
+  OTHER
+}
+
 model User {
   id            String    @id @default(cuid())
   supabaseId    String?   @unique
@@ -88,14 +126,17 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  articles         Article[]    @relation("ArticleAuthor")
-  reviewedArticles Article[]    @relation("ArticleReviewer")
-  issues           Issue[]      @relation("IssueReporter")
-  comments         Comment[]
-  corrections      Correction[]
-  discussions      Discussion[]
-  auditLogs        AuditLog[]
-  media            Media[]
+  articles              Article[]              @relation("ArticleAuthor")
+  reviewedArticles      Article[]              @relation("ArticleReviewer")
+  issues                Issue[]                @relation("IssueReporter")
+  comments              Comment[]
+  corrections           Correction[]
+  discussions           Discussion[]
+  auditLogs             AuditLog[]
+  media                 Media[]
+  identityVerifications IdentityVerification[]
+  roleClaims            RoleClaim[]
+  claims                Claim[]
 }
 
 model Article {
@@ -126,6 +167,7 @@ model Article {
   corrections Correction[]
   discussions Discussion[]
   media       Media[]
+  claims      Claim[]
 
   @@index([authorId])
   @@index([reviewerId])
@@ -202,6 +244,7 @@ model Issue {
   media      Media[]
   sources    IssueSource[]
   comments   Comment[]
+  claims     Claim[]
 
   @@index([reporterId])
   @@index([categoryId])
@@ -321,4 +364,105 @@ model AuditLog {
   @@index([entity])
   @@index([entityId])
   @@index([createdAt])
+}
+
+model IdentityVerification {
+  id                String                       @id @default(cuid())
+  userId            String
+  provider          IdentityVerificationProvider
+  providerReference String?
+  status            IdentityVerificationStatus    @default(PENDING)
+  nikVerified       Boolean                      @default(false)
+  nameVerified      Boolean                      @default(false)
+  birthDateVerified Boolean                      @default(false)
+  documentVerified  Boolean                      @default(false)
+  livenessVerified  Boolean                      @default(false)
+  verifiedAt        DateTime?
+  expiresAt         DateTime?
+  failureCode       String?
+  metadata          Json?
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([provider, providerReference])
+}
+
+model RoleClaim {
+  id           String          @id @default(cuid())
+  userId       String
+  title        String
+  organization String?
+  project      String?
+  validFrom    DateTime?
+  validUntil   DateTime?
+  status       RoleClaimStatus @default(PENDING)
+  verifiedAt   DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  evidence RoleEvidence[]
+
+  @@index([userId, status])
+  @@index([organization])
+  @@index([project])
+  @@index([validUntil])
+}
+
+model RoleEvidence {
+  id          String       @id @default(cuid())
+  roleClaimId String
+  type        EvidenceType
+  title       String
+  sourceUrl   String?
+  description String?
+  documentRef String?
+  verifiedAt  DateTime?
+  createdAt   DateTime     @default(now())
+
+  roleClaim RoleClaim @relation(fields: [roleClaimId], references: [id], onDelete: Cascade)
+
+  @@index([roleClaimId])
+}
+
+model Claim {
+  id          String      @id @default(cuid())
+  authorId    String
+  articleId   String?
+  issueId     String?
+  statement   String      @db.Text
+  status      ClaimStatus @default(UNVERIFIED)
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  author   User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  article  Article?       @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  issue    Issue?         @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  evidence ClaimEvidence[]
+
+  @@index([authorId, status])
+  @@index([articleId])
+  @@index([issueId])
+  @@index([status])
+}
+
+model ClaimEvidence {
+  id          String       @id @default(cuid())
+  claimId     String
+  type        EvidenceType
+  title       String
+  sourceUrl   String?
+  description String?
+  observedAt  DateTime?
+  location    String?
+  createdAt   DateTime     @default(now())
+
+  claim Claim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@index([claimId])
 }

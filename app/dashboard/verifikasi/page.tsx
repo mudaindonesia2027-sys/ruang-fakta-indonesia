@@ -5,6 +5,14 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+const providerLabels: Record<string, string> = {
+  GOOGLE: "Google",
+  FACEBOOK: "Facebook",
+  APPLE: "Apple",
+  GITHUB: "GitHub",
+  LINKEDIN: "LinkedIn",
+};
+
 const identityLabels: Record<string, string> = {
   PENDING: "Menunggu pemeriksaan",
   VERIFIED: "Terverifikasi",
@@ -32,7 +40,12 @@ export default async function VerificationDashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [identity, roles, claims] = await Promise.all([
+  const [accounts, identity, roles, claims] = await Promise.all([
+    db.accountVerification.findMany({
+      where: { userId: user.id, status: "VERIFIED" },
+      select: { id: true, provider: true, verifiedAt: true },
+      orderBy: { verifiedAt: "asc" },
+    }),
     db.identityVerification.findFirst({ where: { userId: user.id }, orderBy: { createdAt: "desc" } }),
     db.roleClaim.findMany({ where: { userId: user.id }, include: { evidence: true }, orderBy: { createdAt: "desc" }, take: 20 }),
     db.claim.findMany({ where: { authorId: user.id }, include: { evidence: true }, orderBy: { createdAt: "desc" }, take: 20 }),
@@ -44,11 +57,28 @@ export default async function VerificationDashboardPage() {
         <div className="container">
           <span className="section-kicker">VERIFIKASI</span>
           <h1>Kepercayaan dibangun dari bukti.</h1>
-          <p>Identitas, peran, dan kebenaran klaim adalah tiga hal berbeda. Masing-masing diperiksa melalui prosesnya sendiri.</p>
+          <p>Verifikasi akun, peran, dan kebenaran klaim adalah tiga hal berbeda. Masing-masing diperiksa melalui prosesnya sendiri.</p>
         </div>
       </section>
 
       <section className="container content-section">
+        <div className="dashboard-section">
+          <div className="section-heading">
+            <div><span className="section-kicker">AKUN</span><h2>Akun terverifikasi</h2></div>
+          </div>
+          <article className="dashboard-item">
+            <div>
+              <h3>{accounts.length > 0 ? "✓ Akun terverifikasi" : "Belum terverifikasi"}</h3>
+              <p>
+                {accounts.length > 0
+                  ? `Terhubung melalui ${accounts.map((account) => providerLabels[account.provider] || account.provider).join(" dan ")}.`
+                  : "Masuk menggunakan Google atau Facebook untuk menghubungkan akun terpercaya."}
+              </p>
+              <p>Badge akun hanya menunjukkan keberhasilan autentikasi akun. Ini bukan verifikasi identitas hukum dan tidak menentukan kebenaran suatu klaim.</p>
+            </div>
+          </article>
+        </div>
+
         <div className="dashboard-section">
           <div className="section-heading">
             <div><span className="section-kicker">IDENTITAS</span><h2>Verifikasi identitas</h2></div>

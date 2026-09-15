@@ -78,8 +78,8 @@ export default function VerificationReviewPage() {
       </header>
 
       <div className="adminTabs">
-        <button onClick={() => setTab("roles")} aria-pressed={tab === "roles">Peran</button>
-        <button onClick={() => setTab("claims")} aria-pressed={tab === "claims">Klaim</button>
+        <button onClick={() => setTab("roles")} aria-pressed={tab === "roles"}>Peran</button>
+        <button onClick={() => setTab("claims")} aria-pressed={tab === "claims"}>Klaim</button>
       </div>
 
       {message && <p role="status">{message}</p>}

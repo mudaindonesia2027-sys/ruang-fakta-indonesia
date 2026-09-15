@@ -31,10 +31,6 @@ function serializeComment(comment: any) {
     id: comment.id,
     content: comment.content,
     status: comment.status,
-    evidenceUrl: comment.evidenceUrl,
-    evidenceType: comment.evidenceType,
-    location: comment.location,
-    isOfficialResponse: comment.isOfficialResponse,
     createdAt: comment.createdAt,
     user: comment.user
       ? {
@@ -136,17 +132,7 @@ export async function POST(
 
   const { slug } = await context.params;
   const body = await request.json().catch(() => null);
-
   const content = String(body?.content || "").trim();
-  const evidenceUrl = body?.evidenceUrl
-    ? String(body.evidenceUrl).trim()
-    : null;
-  const evidenceType = body?.evidenceType
-    ? String(body.evidenceType).trim()
-    : null;
-  const location = body?.location
-    ? String(body.location).trim()
-    : null;
 
   if (content.length < 10) {
     return NextResponse.json(
@@ -205,9 +191,6 @@ export async function POST(
       issueId: issue.id,
       userId: user.id,
       status: "PENDING",
-      evidenceUrl,
-      evidenceType,
-      location,
     },
     select: {
       id: true,

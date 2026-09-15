@@ -81,6 +81,7 @@ enum IdentityVerificationStatus {
 }
 
 enum IdentityVerificationProvider {
+  MANUAL
   VERIHUBS
   PRIVY
   VIDA
@@ -291,8 +292,8 @@ model Comment {
   parentId  String?
   parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies   Comment[] @relation("CommentReplies")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   @@index([articleId])
   @@index([issueId])
   @@index([userId])
@@ -310,8 +311,8 @@ model Correction {
   article         Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
   userId          String?
   user            User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   @@index([articleId])
   @@index([userId])
   @@index([status])
@@ -327,8 +328,6 @@ model Discussion {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  @@index([articleId])
-  @@index([userId])
 }
 
 model Media {

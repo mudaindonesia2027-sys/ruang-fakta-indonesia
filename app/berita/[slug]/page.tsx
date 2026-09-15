@@ -14,6 +14,7 @@ export default async function BeritaDetailPage({ params }: { params: Promise<{ s
   });
   if (!article) notFound();
 
+  const sources = article.sources.filter(({ source }) => Boolean(source.url));
   return (
     <PublicShell>
       <main className="public-page"><article className="container article-detail">
@@ -21,7 +22,7 @@ export default async function BeritaDetailPage({ params }: { params: Promise<{ s
         <h1>{article.title}</h1>
         {article.excerpt && <p className="article-lead">{article.excerpt}</p>}
         <div className="article-body">{article.content.split(/\n{2,}/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
-        <section className="article-sources"><h2>Sumber</h2>{article.sources.length === 0 ? <p>Belum ada sumber yang ditampilkan.</p> : article.sources.map(({ source }) => <div className="source-row" key={source.url}><div><strong>{source.publisher || source.title}</strong><span>{source.title}</span></div><a href={source.url} target="_blank" rel="noreferrer">Buka sumber ↗</a></div>)}</section>
+        <section className="article-sources"><h2>Sumber</h2>{sources.length === 0 ? <p>Belum ada sumber yang ditampilkan.</p> : sources.map(({ source }) => <div className="source-row" key={source.url}><div><strong>{source.publisher || source.title}</strong><span>{source.title}</span></div><a href={source.url!} target="_blank" rel="noreferrer">Buka sumber ↗</a></div>)}</section>
         <div className="article-note">Informasi publik dapat diperbarui atau dikoreksi apabila ditemukan bukti baru. Perubahan penting dicatat melalui riwayat editorial.</div>
       </article></main>
     </PublicShell>

@@ -1,182 +1,27 @@
 import Link from "next/link";
-import {
-  ArticleStatus,
-  IssueStatus,
-} from "@prisma/client";
-
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 
-export const dynamic =
-  "force-dynamic";
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [
-    totalArticles,
-    publishedArticles,
-    totalIssues,
-    activeIssues,
-    latestIssues,
-  ] = await Promise.all([
-    db.article.count(),
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/dashboard");
 
-    db.article.count({
-      where: {
-        status:
-          ArticleStatus.PUBLISHED,
-      },
-    }),
-
-    db.issue.count(),
-
-    db.issue.count({
-      where: {
-        status: {
-          in: [
-            IssueStatus.OPEN,
-            IssueStatus.MONITORING,
-            IssueStatus.INVESTIGATING,
-          ],
-        },
-      },
-    }),
-
-    db.issue.findMany({
-      include: { category: true },
-
-      orderBy: {
-        updatedAt: "desc",
-      },
-
-      take: 5,
-    }),
+  const [myClaims, myRoles, myIssues] = await Promise.all([
+    db.claim.count({ where: { authorId: user.id } }),
+    db.roleClaim.count({ where: { userId: user.id } }),
+    db.issue.count({ where: { reporterId: user.id } }),
   ]);
 
   return (
-    <main className="public-page">
-      <section className="public-hero">
-        <div className="container">
-          <span className="section-kicker">
-            DATA RUANG FAKTA
-          </span>
-
-          <h1>
-            Pantau Informasi
-            Publik Indonesia
-          </h1>
-
-          <p>
-            Ringkasan perkembangan
-            artikel dan isu yang sedang
-            dihimpun oleh Ruang Fakta.
-          </p>
-        </div>
-      </section>
-
+    <main className="user-page">
+      <section className="user-hero"><div className="container"><span className="section-kicker">RUANG SAYA</span><h1>Halo, {user.name || user.username || "warga"}.</h1><p>Ini ruang pribadi untuk kontribusi, verifikasi, dan aktivitas Anda. Halaman editorial untuk pengelola ada terpisah di <strong>/admin</strong>.</p></div></section>
       <section className="container content-section">
-        <div className="stats-grid">
-          <article className="stat-card">
-            <span>
-              Total Artikel
-            </span>
-
-            <strong>
-              {totalArticles}
-            </strong>
-          </article>
-
-          <article className="stat-card">
-            <span>
-              Artikel Published
-            </span>
-
-            <strong>
-              {publishedArticles}
-            </strong>
-          </article>
-
-          <article className="stat-card">
-            <span>
-              Total Isu
-            </span>
-
-            <strong>
-              {totalIssues}
-            </strong>
-          </article>
-
-          <article className="stat-card">
-            <span>
-              Isu Aktif
-            </span>
-
-            <strong>
-              {activeIssues}
-            </strong>
-          </article>
-        </div>
-
-        <section className="dashboard-section">
-          <div className="section-heading">
-            <div>
-              <span className="section-kicker">
-                TERBARU
-              </span>
-
-              <h2>
-                Isu Terbaru
-              </h2>
-            </div>
-
-            <Link
-              href="/isu"
-              className="button-secondary"
-            >
-              Semua Isu
-            </Link>
-          </div>
-
-          <div className="dashboard-list">
-            {latestIssues.map(
-              (issue) => (
-                <article
-                  key={issue.id}
-                  className="dashboard-item"
-                >
-                  <div>
-                    <span>
-                      {issue.category?.name ||
-                        "ISU PUBLIK"}
-                    </span>
-
-                    <h3>
-                      <Link
-                        href={`/isu/${issue.slug}`}
-                      >
-                        {issue.title}
-                      </Link>
-                    </h3>
-
-                    <p>
-                      {issue.summary ||
-                        issue.description.slice(
-                          0,
-                          120
-                        )}
-                    </p>
-                  </div>
-
-                  <time>
-                    {new Date(
-                      issue.updatedAt
-                    ).toLocaleDateString(
-                      "id-ID"
-                    )}
-                  </time>
-                </article>
-              )
-            )}
-          </div>
-        </section>
+        <div className="user-badges"><span className="role-pill">Akun {user.role}</span><span className="role-pill">Email {user.emailVerified ? "terverifikasi" : "belum terverifikasi"}</span></div>
+        <div className="stats-grid public-data-stats"><article className="stat-card"><span>Isu saya</span><strong>{myIssues}</strong></article><article className="stat-card"><span>Klaim saya</span><strong>{myClaims}</strong></article><article className="stat-card"><span>Peran diajukan</span><strong>{myRoles}</strong></article></div>
+        <div className="action-grid"><Link className="action-card" href="/dashboard/verifikasi/peran"><span>01</span><h2>Verifikasi peran</h2><p>Ajukan peran atau keterlibatan organisasi dengan bukti.</p><b>Buka →</b></Link><Link className="action-card" href="/dashboard/verifikasi/klaim"><span>02</span><h2>Verifikasi klaim</h2><p>Ajukan pernyataan dan bukti yang bisa diperiksa.</p><b>Buka →</b></Link><Link className="action-card" href="/isu"><span>03</span><h2>Pantau isu publik</h2><p>Kembali ke ruang publik untuk membaca perkembangan.</p><b>Lihat isu →</b></Link></div>
       </section>
     </main>
   );

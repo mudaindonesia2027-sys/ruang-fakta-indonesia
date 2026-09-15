@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { IssuePriority, IssueStatus, Prisma, VerificationStatus } from "@prisma/client";
+import { CommentStatus, IssuePriority, IssueStatus, Prisma, VerificationStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { requirePermission } from "@/lib/authorization";
@@ -13,7 +13,24 @@ function valid<T extends Record<string,string>>(values:T, value: unknown): T[key
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const issue = await db.issue.findUnique({ where: { id }, include: { category: true, updates: { orderBy: { createdAt: "desc" } }, sources: { include: { source: true } }, comments: true } });
+    const issue = await db.issue.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        updates: { orderBy: { createdAt: "desc" } },
+        sources: { include: { source: true } },
+        comments: {
+          where: { status: CommentStatus.APPROVED },
+          orderBy: { createdAt: "asc" },
+          include: {
+            replies: {
+              where: { status: CommentStatus.APPROVED },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        },
+      },
+    });
     if (!issue) return NextResponse.json({ error: "Issue not found" }, { status: 404 });
     return NextResponse.json({ success: true, data: issue });
   } catch (error) {

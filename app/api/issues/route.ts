@@ -3,6 +3,7 @@ import { IssuePriority, IssueStatus, Prisma, VerificationStatus } from "@prisma/
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { requirePermission } from "@/lib/authorization";
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 import { slugify, uniqueSlug } from "@/lib/slug";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,14 @@ export async function POST(request: NextRequest) {
   const access = await requirePermission("issue:create");
   if (!access.ok) return access.response;
   try {
+    const limit = await checkRateLimit(access.user.id, "ISSUE_CREATED");
+    if (!limit.allowed) {
+      return NextResponse.json(rateLimitResponse(limit.retryAfterSeconds), {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      });
+    }
+
     const body = await request.json();
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const description = typeof body.content === "string" ? body.content.trim() : typeof body.description === "string" ? body.description.trim() : "";

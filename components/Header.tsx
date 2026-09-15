@@ -1,5 +1,13 @@
 import Link from "next/link";
 
+const navigation = [
+  ["Beranda", "/"],
+  ["Isu Publik", "/isu"],
+  ["Berita", "/berita"],
+  ["Data & Fakta", "/data"],
+  ["Tentang", "/tentang"],
+] as const;
+
 export default function Header() {
   return (
     <header className="site-header">
@@ -9,11 +17,7 @@ export default function Header() {
           <span className="brand-text"><strong>RUANG</strong><strong>FAKTA</strong></span>
         </Link>
         <nav className="main-nav" aria-label="Navigasi website publik">
-          <Link href="/">Beranda</Link>
-          <Link href="/isu">Isu Publik</Link>
-          <Link href="/berita">Berita</Link>
-          <Link href="/data">Data & Fakta</Link>
-          <Link href="/tentang">Tentang</Link>
+          {navigation.map(([label, href]) => <Link href={href} key={href}>{label}</Link>)}
         </nav>
         <div className="header-actions">
           <Link href="/isu" className="header-search" aria-label="Cari isu dan informasi"><span aria-hidden="true">⌕</span><span>Cari</span></Link>

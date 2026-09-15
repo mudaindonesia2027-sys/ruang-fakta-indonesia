@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./ui-overrides.css";
+import "./workspace.css";
 
 export const metadata: Metadata = {
   title: { default: "Ruang Fakta", template: "%s | Ruang Fakta" },

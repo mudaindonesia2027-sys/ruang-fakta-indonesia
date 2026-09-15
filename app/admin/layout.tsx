@@ -10,6 +10,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <a href="/admin/issues">Isu</a>
           <a href="/admin/review">Review</a>
           <a href="/admin/verification">Verifikasi</a>
+          <a href="/admin/audit">Audit Trail</a>
           <a href="/admin/discussions">Diskusi</a>
           <a href="/admin/sources">Sumber</a>
           <a href="/admin/corrections">Koreksi</a>

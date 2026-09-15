@@ -28,9 +28,15 @@ export async function POST(request: Request) {
 
     if (!roleClaimId) return NextResponse.json({ error: "roleClaimId wajib diisi." }, { status: 400 });
 
-    const roleClaim = await db.roleClaim.findUnique({ where: { id: roleClaimId } });
+    const roleClaim = await db.roleClaim.findUnique({
+      where: { id: roleClaimId },
+      include: { evidence: { select: { id: true } } },
+    });
     if (!roleClaim) return NextResponse.json({ error: "Role claim tidak ditemukan." }, { status: 404 });
     if (roleClaim.status !== "PENDING") return NextResponse.json({ error: "Role claim sudah diproses." }, { status: 400 });
+    if (approved && roleClaim.evidence.length === 0) {
+      return NextResponse.json({ error: "Role claim tidak dapat diverifikasi tanpa evidence." }, { status: 400 });
+    }
 
     const updated = await db.roleClaim.update({
       where: { id: roleClaimId },
@@ -48,11 +54,7 @@ export async function POST(request: Request) {
       details: { status: updated.status },
     });
 
-    return NextResponse.json({
-      id: updated.id,
-      status: updated.status,
-      verifiedAt: updated.verifiedAt,
-    });
+    return NextResponse.json({ id: updated.id, status: updated.status, verifiedAt: updated.verifiedAt });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Gagal memproses role claim.";
     return NextResponse.json({ error: message }, { status: 400 });

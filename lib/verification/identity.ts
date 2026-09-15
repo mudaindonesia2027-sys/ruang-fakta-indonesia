@@ -1,12 +1,10 @@
 import { IdentityVerificationProvider, IdentityVerificationStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { VerihubsIdentityProvider } from "./verihubs";
+import { ManualIdentityProvider } from "./provider";
 import type { IdentityVerificationInput } from "./provider";
 
-const providers = {
-  VERIHUBS: new VerihubsIdentityProvider(),
-} as const;
+const provider = new ManualIdentityProvider();
 
 function normalizeNik(value: string) {
   return value.replace(/\D/g, "");
@@ -25,57 +23,72 @@ export async function startIdentityVerification(userId: string, input: IdentityV
   if (!name) throw new Error("Nama wajib diisi.");
   if (!validBirthDate(birthDate)) throw new Error("Tanggal lahir harus berformat DD-MM-YYYY.");
 
+  // Do not persist NIK, name, or birth date. They are only accepted here
+  // so the application can validate the submission before creating a review.
   const verification = await db.identityVerification.create({
     data: {
       userId,
-      provider: IdentityVerificationProvider.VERIHUBS,
+      provider: IdentityVerificationProvider.MANUAL,
       status: IdentityVerificationStatus.PENDING,
     },
   });
 
-  try {
-    const result = await providers.VERIHUBS.verifyIdentity({
-      nik,
-      name,
-      birthDate,
-      referenceId: verification.id,
-    });
+  await provider.verifyIdentity({
+    ...input,
+    nik,
+    name,
+    birthDate,
+    referenceId: verification.id,
+  });
 
-    const verified = result.nikVerified && result.nameVerified && result.birthDateVerified;
-    const status = verified ? IdentityVerificationStatus.VERIFIED : IdentityVerificationStatus.FAILED;
+  await audit({
+    action: "IDENTITY_VERIFICATION_STARTED",
+    entity: "IdentityVerification",
+    entityId: verification.id,
+    actorId: userId,
+    details: { provider: "MANUAL" },
+  });
 
-    const updated = await db.identityVerification.update({
-      where: { id: verification.id },
-      data: {
-        status,
-        providerReference: result.referenceId ?? null,
-        nikVerified: result.nikVerified,
-        nameVerified: result.nameVerified,
-        birthDateVerified: result.birthDateVerified,
-        documentVerified: result.documentVerified,
-        livenessVerified: result.livenessVerified,
-        verifiedAt: verified ? new Date() : null,
-        failureCode: verified ? null : "IDENTITY_NOT_MATCHED",
-        metadata: result.raw as object,
-      },
-    });
+  return verification;
+}
 
-    await audit({
-      action: verified ? "IDENTITY_VERIFIED" : "IDENTITY_VERIFICATION_FAILED",
-      entity: "IdentityVerification",
-      entityId: verification.id,
-      actorId: userId,
-      details: { provider: result.provider, status },
-    });
+export async function reviewIdentityVerification(
+  verificationId: string,
+  reviewerId: string,
+  approved: boolean,
+  failureCode?: string,
+) {
+  const verification = await db.identityVerification.findUnique({
+    where: { id: verificationId },
+  });
 
-    return updated;
-  } catch (error) {
-    await db.identityVerification.update({
-      where: { id: verification.id },
-      data: { status: IdentityVerificationStatus.FAILED, failureCode: "PROVIDER_ERROR" },
-    });
-    throw error;
+  if (!verification) throw new Error("Verifikasi identitas tidak ditemukan.");
+  if (verification.status !== IdentityVerificationStatus.PENDING) {
+    throw new Error("Verifikasi identitas ini sudah diproses.");
   }
+
+  const status = approved
+    ? IdentityVerificationStatus.VERIFIED
+    : IdentityVerificationStatus.FAILED;
+
+  const updated = await db.identityVerification.update({
+    where: { id: verificationId },
+    data: {
+      status,
+      verifiedAt: approved ? new Date() : null,
+      failureCode: approved ? null : failureCode || "MANUAL_REVIEW_FAILED",
+    },
+  });
+
+  await audit({
+    action: approved ? "IDENTITY_VERIFIED" : "IDENTITY_VERIFICATION_FAILED",
+    entity: "IdentityVerification",
+    entityId: verificationId,
+    actorId: reviewerId,
+    details: { provider: "MANUAL", status },
+  });
+
+  return updated;
 }
 
 export async function getLatestIdentityVerification(userId: string) {

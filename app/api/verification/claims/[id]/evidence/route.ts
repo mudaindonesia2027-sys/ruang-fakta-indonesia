@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rate-limit";
 
 const allowedTypes = new Set<EvidenceType>([
   EvidenceType.DOCUMENT,
@@ -27,6 +28,14 @@ export async function POST(
     if (claim.authorId !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     if (claim.status !== "UNVERIFIED" && claim.status !== "DISPUTED") {
       return NextResponse.json({ error: "Evidence hanya dapat ditambahkan pada claim yang belum final." }, { status: 400 });
+    }
+
+    const limit = await checkRateLimit(user.id, "CLAIM_EVIDENCE_CREATED");
+    if (!limit.allowed) {
+      return NextResponse.json(rateLimitResponse(limit.retryAfterSeconds), {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      });
     }
 
     const body = await request.json();

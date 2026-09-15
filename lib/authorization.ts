@@ -5,8 +5,8 @@ import { getCurrentUser } from "@/lib/auth";
 const permissions: Record<UserRole, readonly string[]> = {
   USER: ["read", "comment"],
   CONTRIBUTOR: ["read", "comment", "article:create"],
-  EDITOR: ["read", "comment", "article:create", "article:update", "article:review", "issue:create", "issue:update", "comment:moderate"],
-  REVIEWER: ["read", "article:review", "issue:update", "comment:moderate"],
+  EDITOR: ["read", "comment", "article:create", "article:update", "article:review", "issue:create", "issue:update", "comment:moderate", "verification:review"],
+  REVIEWER: ["read", "article:review", "issue:update", "comment:moderate", "verification:review"],
   ADMIN: ["*"],
   SUPERADMIN: ["*"],
 };

@@ -9,31 +9,22 @@ export default function Header() {
             <span className="brand-mark-red" />
             <span className="brand-mark-white" />
           </span>
-
-          <span className="brand-text">
-            <strong>RUANG</strong>
-            <strong>FAKTA</strong>
-          </span>
+          <span className="brand-text"><strong>RUANG</strong><strong>FAKTA</strong></span>
         </Link>
 
-        <nav className="main-nav" aria-label="Navigasi utama">
+        <nav className="main-nav" aria-label="Navigasi publik">
+          <Link href="/">Beranda</Link>
           <Link href="/isu">Isu</Link>
-          <Link href="/isu">Nasional</Link>
-          <Link href="/isu">Daerah</Link>
-          <Link href="/dashboard">Data</Link>
-          <Link href="/isu">Desa & Dusun</Link>
-          <Link href="/login">Masuk</Link>
+          <Link href="/berita">Berita</Link>
+          <Link href="/data">Data</Link>
+          <Link href="/tentang">Tentang</Link>
         </nav>
 
         <div className="header-actions">
-          <Link href="/isu" className="header-search">
-            <span aria-hidden="true">⌕</span>
-            <span>Cari</span>
+          <Link href="/isu" className="header-search" aria-label="Cari isu dan informasi">
+            <span aria-hidden="true">⌕</span><span>Cari</span>
           </Link>
-
-          <Link href="/dashboard" className="header-button">
-            Ruang Saya
-          </Link>
+          <Link href="/dashboard" className="header-button">Ruang Saya</Link>
         </div>
       </div>
     </header>
